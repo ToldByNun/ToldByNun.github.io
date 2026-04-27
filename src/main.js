@@ -1,10 +1,10 @@
 import { portfolioData } from "./content.js";
 
-const state = {
-  activeTag: "Alle",
-  theme: localStorage.getItem("theme") || "dark",
+const portfolioUiState = {
+  activeProjectFilter: "Alle",
+  preferredTheme: localStorage.getItem("theme") || "dark",
 };
-const videoModal = {
+const demoLightboxState = {
   wrap: null,
   player: null,
   title: null,
@@ -13,17 +13,42 @@ const videoModal = {
   seek: null,
   time: null,
 };
+const playbackIssueCache = new Set();
 
-function byId(id) {
+function getUiNode(id) {
   return document.getElementById(id);
 }
 
-function setText(id, value) {
-  const node = byId(id);
+function setUiText(id, value) {
+  const node = getUiNode(id);
   if (node) node.textContent = value;
 }
 
-function formatTime(seconds) {
+function reportPlaybackIssue(projectTitle, stage, error) {
+  const cacheKey = `${projectTitle}:${stage}`;
+  if (playbackIssueCache.has(cacheKey)) return;
+  playbackIssueCache.add(cacheKey);
+  console.info(`[portfolio-playback] ${projectTitle} (${stage})`, error || "no error payload");
+}
+
+function parseGermanDateTime(value) {
+  if (!value || typeof value !== "string") return Number.NEGATIVE_INFINITY;
+  const [datePart, timePart = "00:00"] = value.trim().split(" ");
+  const [day, month, year] = datePart.split(".").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  if (
+    !Number.isFinite(day) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(year) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute)
+  ) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  return new Date(year, month - 1, day, hour, minute).getTime();
+}
+
+function formatPlaybackTimestamp(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
   const mins = Math.floor(seconds / 60)
     .toString()
@@ -34,58 +59,60 @@ function formatTime(seconds) {
   return `${mins}:${secs}`;
 }
 
-function updateVideoModalControls() {
-  if (!videoModal.player) return;
-  const { player, play, mute, seek, time } = videoModal;
+function syncLightboxControls() {
+  if (!demoLightboxState.player) return;
+  const { player, play, mute, seek, time } = demoLightboxState;
   if (!player.duration || Number.isNaN(player.duration)) {
     seek.value = "0";
     time.textContent = "00:00 / 00:00";
   } else {
     const progress = (player.currentTime / player.duration) * 1000;
     seek.value = Math.max(0, Math.min(1000, Math.round(progress))).toString();
-    time.textContent = `${formatTime(player.currentTime)} / ${formatTime(player.duration)}`;
+    time.textContent = `${formatPlaybackTimestamp(player.currentTime)} / ${formatPlaybackTimestamp(player.duration)}`;
   }
   play.textContent = player.paused ? "Play" : "Pause";
   mute.textContent = player.muted ? "Unmute" : "Mute";
 }
 
 function closeVideoModal() {
-  if (!videoModal.wrap || videoModal.wrap.hidden) return;
-  videoModal.player.pause();
-  videoModal.player.removeAttribute("src");
-  videoModal.player.load();
-  videoModal.wrap.hidden = true;
-  videoModal.wrap.setAttribute("aria-hidden", "true");
+  if (!demoLightboxState.wrap || demoLightboxState.wrap.hidden) return;
+  demoLightboxState.player.pause();
+  demoLightboxState.player.removeAttribute("src");
+  demoLightboxState.player.load();
+  demoLightboxState.wrap.hidden = true;
+  demoLightboxState.wrap.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
 }
 
 function openVideoModal(project) {
-  if (!videoModal.wrap || !project?.videoUrl) return;
-  videoModal.title.textContent = project.title;
-  videoModal.player.src = project.videoUrl;
-  if (project.videoPoster) videoModal.player.poster = project.videoPoster;
-  else videoModal.player.removeAttribute("poster");
-  videoModal.player.muted = false;
-  videoModal.wrap.hidden = false;
-  videoModal.wrap.setAttribute("aria-hidden", "false");
+  if (!demoLightboxState.wrap || !project?.videoUrl) return;
+  demoLightboxState.title.textContent = project.title;
+  demoLightboxState.player.src = project.videoUrl;
+  if (project.videoPoster) demoLightboxState.player.poster = project.videoPoster;
+  else demoLightboxState.player.removeAttribute("poster");
+  demoLightboxState.player.muted = false;
+  demoLightboxState.wrap.hidden = false;
+  demoLightboxState.wrap.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
-  videoModal.player.play().catch(() => {});
-  updateVideoModalControls();
+  demoLightboxState.player.play().catch((error) => {
+    reportPlaybackIssue(project.title, "lightbox-open", error);
+  });
+  syncLightboxControls();
 }
 
-function setupVideoModal() {
-  videoModal.wrap = byId("video-modal");
-  videoModal.player = byId("video-modal-player");
-  videoModal.title = byId("video-modal-title");
-  videoModal.play = byId("video-modal-play");
-  videoModal.mute = byId("video-modal-mute");
-  videoModal.seek = byId("video-modal-seek");
-  videoModal.time = byId("video-modal-time");
-  const closeBtn = byId("video-modal-close");
-  if (!videoModal.wrap || !videoModal.player) return;
+function initDemoLightbox() {
+  demoLightboxState.wrap = getUiNode("video-modal");
+  demoLightboxState.player = getUiNode("video-modal-player");
+  demoLightboxState.title = getUiNode("video-modal-title");
+  demoLightboxState.play = getUiNode("video-modal-play");
+  demoLightboxState.mute = getUiNode("video-modal-mute");
+  demoLightboxState.seek = getUiNode("video-modal-seek");
+  demoLightboxState.time = getUiNode("video-modal-time");
+  const closeBtn = getUiNode("video-modal-close");
+  if (!demoLightboxState.wrap || !demoLightboxState.player) return;
 
   closeBtn?.addEventListener("click", closeVideoModal);
-  videoModal.wrap.addEventListener("click", (event) => {
+  demoLightboxState.wrap.addEventListener("click", (event) => {
     const target = event.target;
     if (target instanceof HTMLElement && target.hasAttribute("data-close-video-modal")) {
       closeVideoModal();
@@ -94,26 +121,29 @@ function setupVideoModal() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeVideoModal();
   });
-  videoModal.play.addEventListener("click", () => {
-    if (videoModal.player.paused) videoModal.player.play().catch(() => {});
-    else videoModal.player.pause();
+  demoLightboxState.play.addEventListener("click", () => {
+    if (demoLightboxState.player.paused) {
+      demoLightboxState.player.play().catch((error) => {
+        reportPlaybackIssue(demoLightboxState.title.textContent || "unknown", "lightbox-play", error);
+      });
+    } else demoLightboxState.player.pause();
   });
-  videoModal.mute.addEventListener("click", () => {
-    videoModal.player.muted = !videoModal.player.muted;
-    updateVideoModalControls();
+  demoLightboxState.mute.addEventListener("click", () => {
+    demoLightboxState.player.muted = !demoLightboxState.player.muted;
+    syncLightboxControls();
   });
-  videoModal.seek.addEventListener("input", () => {
-    if (!videoModal.player.duration || Number.isNaN(videoModal.player.duration)) return;
-    const ratio = Number(videoModal.seek.value) / 1000;
-    videoModal.player.currentTime = ratio * videoModal.player.duration;
-    updateVideoModalControls();
+  demoLightboxState.seek.addEventListener("input", () => {
+    if (!demoLightboxState.player.duration || Number.isNaN(demoLightboxState.player.duration)) return;
+    const ratio = Number(demoLightboxState.seek.value) / 1000;
+    demoLightboxState.player.currentTime = ratio * demoLightboxState.player.duration;
+    syncLightboxControls();
   });
   ["timeupdate", "play", "pause", "loadedmetadata", "volumechange", "ended"].forEach((eventName) => {
-    videoModal.player.addEventListener(eventName, updateVideoModalControls);
+    demoLightboxState.player.addEventListener(eventName, syncLightboxControls);
   });
 }
 
-function createMedia(project) {
+function buildProjectMediaPreview(project) {
   const wrap = document.createElement("div");
   wrap.className = "project-media";
 
@@ -128,6 +158,7 @@ function createMedia(project) {
 
     function ensureVideoSource() {
       if (video.dataset.loaded) return;
+      // Load sources only when needed to keep first paint fast.
       const source = document.createElement("source");
       source.src = project.videoUrl;
       source.type = project.videoType || "video/mp4";
@@ -137,12 +168,14 @@ function createMedia(project) {
     }
 
     video.addEventListener("error", () => {
-      video.replaceWith(createFallbackCover(project));
+      video.replaceWith(buildProjectFallbackCover(project));
     });
 
     wrap.addEventListener("mouseenter", () => {
       ensureVideoSource();
-      video.play().catch(() => {});
+      video.play().catch((error) => {
+        reportPlaybackIssue(project.title, "card-hover", error);
+      });
     });
     wrap.addEventListener("mouseleave", () => {
       video.pause();
@@ -150,6 +183,7 @@ function createMedia(project) {
     });
 
     if ("IntersectionObserver" in window) {
+      // Prime videos shortly before they enter viewport for smoother hover playback.
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -179,7 +213,7 @@ function createMedia(project) {
     wrap.appendChild(video);
     wrap.appendChild(expand);
   } else {
-    wrap.appendChild(createFallbackCover(project));
+    wrap.appendChild(buildProjectFallbackCover(project));
   }
 
   if (project.wip) {
@@ -192,7 +226,7 @@ function createMedia(project) {
   return wrap;
 }
 
-function createFallbackCover(project) {
+function buildProjectFallbackCover(project) {
   const fallback = document.createElement("div");
   fallback.className = "project-media-fallback";
   fallback.style.background =
@@ -201,7 +235,7 @@ function createFallbackCover(project) {
   return fallback;
 }
 
-function createProjectChips(project) {
+function buildProjectTechChips(project) {
   const wrap = document.createElement("div");
   wrap.className = "project-tags";
 
@@ -215,13 +249,22 @@ function createProjectChips(project) {
   return wrap;
 }
 
+function pickFeaturedProject(projects) {
+  const manualFeatured = projects.find((project) => project.featured);
+  if (manualFeatured) return manualFeatured;
+  const bootloaderFallback = projects.find((project) =>
+    /uefi|bootloader|kernel/i.test(project.title || "")
+  );
+  return bootloaderFallback || projects[0] || null;
+}
+
 function renderHero() {
   const { person } = portfolioData;
-  setText("hero-name", person.name);
-  setText("hero-role", person.role);
-  setText("hero-value", person.value);
+  setUiText("hero-name", person.name);
+  setUiText("hero-role", person.role);
+  setUiText("hero-value", person.value);
 
-  const highlights = byId("hero-highlights");
+  const highlights = getUiNode("hero-highlights");
   highlights.innerHTML = "";
   person.highlights.forEach((item) => {
     const li = document.createElement("li");
@@ -230,11 +273,11 @@ function renderHero() {
   });
 }
 
-function renderFeatured() {
-  const wrap = byId("featured-project");
+function renderFeaturedShowcase() {
+  const wrap = getUiNode("featured-project");
   if (!wrap) return;
 
-  const featured = portfolioData.projects.find((p) => p.featured);
+  const featured = pickFeaturedProject(portfolioData.projects);
   if (!featured) {
     wrap.innerHTML = "";
     return;
@@ -292,7 +335,7 @@ function renderFeatured() {
     video.appendChild(source);
 
     video.addEventListener("error", () => {
-      video.replaceWith(createFallbackCover(featured));
+      video.replaceWith(buildProjectFallbackCover(featured));
     });
 
     const expand = document.createElement("button");
@@ -308,7 +351,7 @@ function renderFeatured() {
     media.appendChild(video);
     media.appendChild(expand);
   } else {
-    media.appendChild(createFallbackCover(featured));
+    media.appendChild(buildProjectFallbackCover(featured));
   }
 
   card.appendChild(media);
@@ -326,40 +369,40 @@ function getAllProjectTags() {
 }
 
 function renderProjectFilters() {
-  const wrap = byId("project-tags");
+  const wrap = getUiNode("project-tags");
   wrap.innerHTML = "";
 
   const tags = getAllProjectTags();
   tags.forEach((tag) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `tag ${state.activeTag === tag ? "is-active" : ""}`;
+    button.className = `tag ${portfolioUiState.activeProjectFilter === tag ? "is-active" : ""}`;
     button.textContent = tag;
     button.addEventListener("click", () => {
-      state.activeTag = tag;
+      portfolioUiState.activeProjectFilter = tag;
       renderProjectFilters();
-      renderProjects();
+      renderProjectShowcase();
     });
     wrap.appendChild(button);
   });
 }
 
-function renderProjects() {
-  const grid = byId("project-grid");
+function renderProjectShowcase() {
+  const grid = getUiNode("project-grid");
   grid.innerHTML = "";
 
   const projects = portfolioData.projects
     .filter((p) => !p.featured)
     .filter((project) => {
-      if (state.activeTag === "Alle") return true;
-      return project.category.includes(state.activeTag);
+      if (portfolioUiState.activeProjectFilter === "Alle") return true;
+      return project.category.includes(portfolioUiState.activeProjectFilter);
     });
 
   projects.forEach((project) => {
     const card = document.createElement("article");
     card.className = "project-card";
 
-    card.appendChild(createMedia(project));
+    card.appendChild(buildProjectMediaPreview(project));
 
     const body = document.createElement("div");
     body.className = "project-body";
@@ -376,14 +419,14 @@ function renderProjects() {
       body.appendChild(tagline);
     }
 
-    body.appendChild(createProjectChips(project));
+    body.appendChild(buildProjectTechChips(project));
     card.appendChild(body);
     grid.appendChild(card);
   });
 }
 
-function renderSkills() {
-  const grid = byId("skills-grid");
+function renderSkillMatrix() {
+  const grid = getUiNode("skills-grid");
   grid.innerHTML = "";
 
   Object.entries(portfolioData.skills).forEach(([category, values], index) => {
@@ -408,12 +451,17 @@ function renderSkills() {
   });
 }
 
-function renderWorkHistory() {
-  const wrap = byId("work-history");
+function renderProjectTimeline() {
+  const wrap = getUiNode("work-history");
   if (!wrap) return;
   wrap.innerHTML = "";
 
-  portfolioData.workHistory?.forEach((entry, index) => {
+  // Recruiters usually scan newest work first, so this stays date-driven.
+  const timelineEntries = [...(portfolioData.workHistory || [])]
+    .filter((entry) => entry?.title && entry?.finishedAt && entry?.summary)
+    .sort((a, b) => parseGermanDateTime(b.finishedAt) - parseGermanDateTime(a.finishedAt));
+
+  timelineEntries.forEach((entry, index) => {
     const item = document.createElement("article");
     item.className = "history-item";
     item.classList.add("reveal-up");
@@ -446,7 +494,7 @@ function renderWorkHistory() {
   });
 }
 
-function setupRevealAnimations() {
+function initScrollReveal() {
   const nodes = document.querySelectorAll(".reveal-up");
   if (!nodes.length) return;
   if (!("IntersectionObserver" in window)) {
@@ -470,49 +518,50 @@ function setupRevealAnimations() {
 
 function renderContact() {
   const { contact } = portfolioData;
-  setText("contact-intro", contact.intro);
+  setUiText("contact-intro", contact.intro);
 
-  const email = byId("contact-email");
+  const email = getUiNode("contact-email");
   email.href = `mailto:${contact.email}`;
-  setText("contact-email-text", contact.email);
+  setUiText("contact-email-text", contact.email);
 
-  const phone = byId("contact-phone");
+  const phone = getUiNode("contact-phone");
   phone.href = `tel:${contact.phone.replace(/\s+/g, "")}`;
-  setText("contact-phone-text", contact.phone);
+  setUiText("contact-phone-text", contact.phone);
 }
 
 function renderFooter() {
   const year = new Date().getFullYear();
-  setText("footer-text", `${portfolioData.person.name} · ${year}`);
+  setUiText("footer-text", `${portfolioData.person.name} · ${year}`);
 }
 
 function applyTheme() {
-  document.documentElement.setAttribute("data-theme", state.theme);
-  setText("theme-toggle-label", state.theme === "dark" ? "light" : "dark");
+  document.documentElement.setAttribute("data-theme", portfolioUiState.preferredTheme);
+  setUiText("theme-toggle-label", portfolioUiState.preferredTheme === "dark" ? "light" : "dark");
 }
 
 function setupThemeToggle() {
   applyTheme();
-  const toggle = byId("theme-toggle");
+  const toggle = getUiNode("theme-toggle");
   if (!toggle) return;
 
   toggle.addEventListener("click", () => {
-    state.theme = state.theme === "dark" ? "light" : "dark";
-    localStorage.setItem("theme", state.theme);
+    portfolioUiState.preferredTheme =
+      portfolioUiState.preferredTheme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", portfolioUiState.preferredTheme);
     applyTheme();
   });
 }
 
 function init() {
-  setupVideoModal();
+  initDemoLightbox();
   setupThemeToggle();
   renderHero();
-  renderFeatured();
+  renderFeaturedShowcase();
   renderProjectFilters();
-  renderProjects();
-  renderSkills();
-  renderWorkHistory();
-  setupRevealAnimations();
+  renderProjectShowcase();
+  renderSkillMatrix();
+  renderProjectTimeline();
+  initScrollReveal();
   renderContact();
   renderFooter();
 }
