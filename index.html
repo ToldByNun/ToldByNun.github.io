@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Mika Dierks - Junior Developer (C++, Python, Lua). Portfolio mit Projekten, Skills und Kontakt."
+    />
+    <title>Mika Dierks // Portfolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-glow" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="#start">
+          <span class="brand-dot"></span>
+          mika.dev
+        </a>
+        <nav>
+          <ul class="nav-list">
+            <li><a href="#projekte">Projekte</a></li>
+            <li><a href="#stack">Stack</a></li>
+            <li><a href="#cv">History</a></li>
+            <li><a href="#kontakt">Kontakt</a></li>
+          </ul>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Theme umschalten">
+          <span class="theme-toggle-dot"></span>
+          <span id="theme-toggle-label">dark</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section id="start" class="hero">
+        <div class="container">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Verfügbar für Praktikum / Junior-Einstieg</span>
+          </div>
+          <h1>
+            <span id="hero-name"></span>
+            <span class="hero-cursor" aria-hidden="true"></span>
+          </h1>
+          <p id="hero-role" class="hero-role"></p>
+          <p id="hero-value" class="hero-value"></p>
+          <ul id="hero-highlights" class="hero-facts"></ul>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#projekte">
+              Projekte ansehen
+              <span aria-hidden="true">-&gt;</span>
+            </a>
+            <a class="btn btn-ghost" href="#kontakt">Kontakt</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="projekte" class="section">
+        <div class="container">
+          <div class="section-head">
+            <p class="section-eyebrow">// projekte</p>
+            <h2>Was ich gerade baue</h2>
+            <p class="section-subtext">
+              Ausgewählte Projekte mit Demo-Videos. Tech-fokussiert, build-first.
+            </p>
+          </div>
+
+          <div id="featured-project"></div>
+
+          <div id="project-tags" class="tag-row"></div>
+          <div id="project-grid" class="project-grid"></div>
+        </div>
+      </section>
+
+      <section id="stack" class="section section-alt">
+        <div class="container">
+          <div class="section-head">
+            <p class="section-eyebrow">// stack</p>
+            <h2>Tools &amp; Sprachen</h2>
+          </div>
+          <div id="skills-grid" class="skills-grid"></div>
+        </div>
+      </section>
+
+      <section id="cv" class="section">
+        <div class="container">
+          <div class="section-head">
+            <p class="section-eyebrow">// work history</p>
+            <h2>Project Work History</h2>
+            <p class="section-subtext">Timeline der abgeschlossenen Projekt-Demos aus den letzten Monaten.</p>
+          </div>
+          <div class="history-wrap">
+            <div id="work-history" class="work-history"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="kontakt" class="section section-alt">
+        <div class="container">
+          <div class="section-head">
+            <p class="section-eyebrow">// kontakt</p>
+            <h2>Lass uns reden</h2>
+            <p id="contact-intro" class="section-subtext"></p>
+          </div>
+          <div class="contact-grid">
+            <a id="contact-email" class="contact-card" href="#">
+              <span class="contact-label">email</span>
+              <span class="contact-value" id="contact-email-text"></span>
+            </a>
+            <a id="contact-phone" class="contact-card" href="#">
+              <span class="contact-label">phone</span>
+              <span class="contact-value" id="contact-phone-text"></span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-wrap">
+        <p id="footer-text"></p>
+        <a class="footer-link" href="#start">^ top</a>
+      </div>
+    </footer>
+
+    <div id="video-modal" class="video-modal" hidden aria-hidden="true">
+      <div class="video-modal-backdrop" data-close-video-modal></div>
+      <div class="video-modal-panel" role="dialog" aria-modal="true" aria-labelledby="video-modal-title">
+        <div class="video-modal-head">
+          <h3 id="video-modal-title">Demo ansehen</h3>
+          <button id="video-modal-close" class="video-modal-close" type="button" aria-label="Video schließen">×</button>
+        </div>
+        <div class="video-modal-body">
+          <video id="video-modal-player" playsinline preload="metadata"></video>
+        </div>
+        <div class="video-modal-controls">
+          <button id="video-modal-play" class="btn btn-primary" type="button">Play</button>
+          <button id="video-modal-mute" class="btn btn-ghost" type="button">Mute</button>
+          <input
+            id="video-modal-seek"
+            class="video-modal-seek"
+            type="range"
+            min="0"
+            max="1000"
+            step="1"
+            value="0"
+            aria-label="Video Position"
+          />
+          <span id="video-modal-time" class="video-modal-time">00:00 / 00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
